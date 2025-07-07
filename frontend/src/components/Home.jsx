@@ -1,43 +1,61 @@
 import { useState, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { initSocket } from '../utils/socket';
+import { useSocketStore } from '../stores/useSocketStore';
+import { useAuth } from '../stores/useAuthStore';
 
-function Home({ session, onLogout }) {
-  console.log('Home component rendering, user:', session.user.id, 'token:', session.access_token);
+function Home() {
   const [roomId, setRoomId] = useState('');
   const [error, setError] = useState('');
   const [newRoomId, setNewRoomId] = useState('');
   const navigate = useNavigate();
+  const { user, accessToken, logout, username } = useAuth();
+  const { initSocket } = useSocketStore();
 
   const handleCreateRoom = () => {
-    console.log('Creating new room with token:', session.access_token);
-    const socket = initSocket(session.access_token);
-    if (!socket.connected) {
-      socket.connect();
-    }
-    socket.on('connect', () => {
-      console.log('Socket connected for room creation:', socket.id);
-      socket.emit('create-room');
-    });
-    socket.on('room-created', (roomId) => {
+    console.log('Creating new room');
+    const socket = initSocket(accessToken);
+    
+    // Set up event listeners first
+    socket.on('room-created', (data) => {
+      const roomId = typeof data === 'string' ? data : data.roomId;
       console.log('Room created with ID:', roomId);
       setNewRoomId(roomId);
+      // Clean up listeners before navigation
+      socket.off('room-created');
+      socket.off('error');
       navigate(`/room/${roomId}`);
     });
     socket.on('error', (msg) => {
       console.error('Create room error:', msg);
       setError(msg);
+      socket.off('room-created');
+      socket.off('error');
     });
+
+    // Connect and emit create-room
+    if (!socket.connected) {
+      console.log('Connecting socket for room creation...');
+      socket.connect();
+      socket.on('connect', () => {
+        console.log('Socket connected for room creation:', socket.id);
+        socket.emit('create-room');
+      });
+    } else {
+      // If already connected, emit create-room immediately
+      console.log('Socket already connected, emitting create-room immediately...');
+      socket.emit('create-room');
+    }
   };
 
   const handleJoinRoom = (e) => {
     e.preventDefault();
     if (roomId) {
       console.log('Joining room:', roomId);
-      const socket = initSocket(session.access_token);
+      const socket = initSocket(accessToken);
       
       // Set up event listeners first
-      socket.on('joined-room', (joinedRoomId) => {
+      socket.on('joined-room', (data) => {
+        const joinedRoomId = typeof data === 'string' ? data : data.roomId;
         console.log('Joined room with ID:', joinedRoomId);
         console.log('Navigating to room page...');
         socket.off('joined-room');
@@ -84,33 +102,26 @@ function Home({ session, onLogout }) {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className="bg-gray-800 p-8 rounded-lg shadow-lg w-full max-w-md">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">Video Chat</h1>
-          <button
-            onClick={onLogout}
-            className="bg-red-600 hover:bg-red-700 p-2 rounded transition duration-300 transform hover:scale-105"
-          >
-            Log Out
-          </button>
+    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-indigo-900 to-purple-900">
+      <div className="bg-white/10 backdrop-blur-md p-10 rounded-2xl shadow-2xl w-full max-w-md border border-white/20">
+        <div className="flex flex-col items-center mb-6">
+          <h2 className="text-xl font-semibold text-indigo-200 mb-4">Welcome, {username}</h2>
         </div>
-        <h2 className="text-2xl font-semibold mb-4 text-center">Welcome, {session.user.email}</h2>
-        <div className="space-y-6">
+        <div className="space-y-8">
           <div>
             <button
               onClick={handleCreateRoom}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 p-3 rounded-lg transition duration-300 transform hover:scale-105"
+              className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold py-3 rounded-xl transition duration-300 shadow-lg"
             >
               Create New Chat
             </button>
             {newRoomId && (
-              <div className="mt-4 p-4 bg-gray-700 rounded-lg">
-                <p className="text-green-400">Room Created! Share this ID:</p>
-                <p className="text-xl font-mono">{newRoomId}</p>
+              <div className="mt-4 p-4 bg-indigo-900/60 rounded-xl border border-indigo-400/30">
+                <p className="text-green-300">Room Created! Share this ID:</p>
+                <p className="text-2xl font-mono text-indigo-100">{newRoomId}</p>
                 <button
-                  onClick={() => navigator.clipboard.write(newRoomId)}
-                  className="mt-2 bg-indigo-500 hover:bg-indigo-600 p-2 rounded transition duration-300"
+                  onClick={() => navigator.clipboard.writeText(newRoomId)}
+                  className="mt-2 bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg transition duration-300"
                 >
                   Copy Room ID
                 </button>
@@ -118,24 +129,24 @@ function Home({ session, onLogout }) {
             )}
           </div>
           <div>
-            <h3 className="text-xl font-semibold mb-2">Join a Chat</h3>
+            <h3 className="text-lg font-semibold text-indigo-200 mb-2">Join a Chat</h3>
             <form onSubmit={handleJoinRoom}>
               <input
                 type="text"
                 value={roomId}
                 onChange={(e) => setRoomId(e.target.value)}
-                className="w-full p-2 rounded bg-gray-700 text-white mb-2"
+                className="w-full p-3 rounded-lg bg-indigo-950/60 text-white mb-2 border border-indigo-400/20 focus:outline-none focus:ring-2 focus:ring-indigo-400"
                 placeholder="Enter Room ID"
               />
               <button
                 type="submit"
-                className="w-full bg-indigo-600 hover:bg-indigo-700 p-3 rounded-lg transition duration-300 transform hover:scale-105"
+                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold py-3 rounded-xl transition duration-300 shadow-lg"
               >
                 Join Chat
               </button>
             </form>
           </div>
-          {error && <p className="text-red-500 mt-4">{error}</p>}
+          {error && <p className="text-red-400 mt-4 text-center">{error}</p>}
         </div>
       </div>
     </div>
