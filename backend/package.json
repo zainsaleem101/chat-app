@@ -2,13 +2,14 @@
   "name": "chat-app-server",
   "version": "1.0.0",
   "scripts": {
-    "start": "node index.js"
+    "start": "nodemon index.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.50.3",
     "cors": "^2.8.5",
     "dotenv": "^17.0.1",
     "express": "^5.1.0",
+    "nodemon": "^3.1.10",
     "socket.io": "^4.8.1",
     "uuid": "^11.1.0"
   }
