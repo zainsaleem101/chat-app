@@ -102,12 +102,12 @@ module.exports = (io, socket) => {
 
   socket.on('offer', ({ roomId, offer }) => {
     console.log(`Offer sent to room: ${roomId}`);
-    socket.to(roomId).emit('offer', offer);
+    socket.to(roomId).emit('incoming-offer', offer);
   });
 
   socket.on('answer', ({ roomId, answer }) => {
     console.log(`Answer sent to room: ${roomId}`);
-    socket.to(roomId).emit('answer', answer);
+    socket.to(roomId).emit('incoming-answer', answer);
   });
 
   socket.on('ice-candidate', ({ roomId, candidate }) => {
@@ -125,5 +125,29 @@ module.exports = (io, socket) => {
       console.log(`User ${socket.userId} disconnected from room: ${socket.roomId}`);
       io.to(socket.roomId).emit('user-disconnected', { userId: socket.userId, username: socket.username });
     }
+  });
+
+  socket.on('end-call', ({ roomId }) => {
+    console.log(`User ${socket.userId} ended call in room: ${roomId}`);
+    socket.to(roomId).emit('call-ended', { userId: socket.userId, username: socket.username });
+  });
+
+  socket.on("remote-video-disabled", ({roomId}) => {
+    console.log(`User ${socket.userId} diabled video in room: ${roomId}`);
+    socket.to(roomId).emit("disable-remote-video", { userId: socket.userId, username: socket.username })
+  })
+
+  socket.on("remote-video-enabled", ({roomId}) => {
+    console.log(`User ${socket.userId} enabled video in room: ${roomId}`);
+    socket.to(roomId).emit("enable-remote-video", { userId: socket.userId, username: socket.username })
+  })
+
+  socket.on("remote-audio-disabled", ({roomId}) => {
+    console.log(`User ${socket.userId} diabled video in room: ${roomId}`);
+    socket.to(roomId).emit("disable-remote-audio", { userId: socket.userId, username: socket.username })
+  })
+
+  socket.on('captions', ({ roomId, transcript, user }) => {
+    socket.to(roomId).emit('captions', { transcript, user: 'remote' });
   });
 };
